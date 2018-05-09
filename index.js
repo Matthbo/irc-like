@@ -15,53 +15,71 @@ function log(...data){
   sendCLRes('server', ...data)
 }
 
-process.stdin.addListener("data", function(d) {
-  cmd = d.toString().trim();
-
-  switch(cmd){
-    case 'address':
-      log(seserver.address())
-      break;
-    case 'stop':
-    case 'exit':
-      stop()
-      break;
-    default:
-      log("Unkown command")
-  }      
-})
-
 /*Server*/
-const server = net.createServer()
+class Server {
 
-server.on('connection', (socket) => {
-  socket.info = { ip: socket.remoteAddress }
+  constructor(){
+    this.server = net.createServer()
 
-  sendCLRes(socket.info.ip, 'has connected')
+    this.eventHandler()
 
-  socket.on('error', (err) => {
-    sendCLRes(socket.info.ip, 'Connection error:', err.message)
-  })
+    process.stdin.addListener("data", (d) => this.handleCommands(d))
+  }
 
-  socket.on('close', () => {
-    sendCLRes(socket.info.ip, 'has closed the connection')
-  })
-})
+  handleCommands(data){
+    const cmd = data.toString().trim()
 
-server.on('error', (err) => {
-  log(`Critical server error:\n${err}`)
-})
+    switch(cmd){
+      case 'address':
+        log(this.server.address())
+        break;
+      case 'stop':
+      case 'exit':
+        this.stop()
+        break;
+      default:
+        log("Unkown command")
+    }  
+  }
 
-server.on('close', () => {
-  process.exit(0)
-})
+  clientEventHandler(socket){
+    socket.info = { ip: socket.remoteAddress }
 
-server.listen(PORT, HOST, () => {
-  log("Listening on", server.address())
-})
+    sendCLRes(socket.info.ip, 'Has connected')
 
-function stop(){
-  log('Closing server')
+    socket.on('error', (err) => {
+      sendCLRes(socket.info.ip, 'Connection error:', err.message)
+    })
 
-  server.close()
+    socket.on('close', () => {
+      sendCLRes(socket.info.ip, 'Has closed the connection')
+    })
+  }
+
+  eventHandler(){
+    this.server.on('connection', (socket) => this.clientEventHandler(socket))
+
+    this.server.on('error', (err) => {
+      log(`Critical server error:\n${err}`)
+    })
+
+    this.server.on('close', () => {
+      process.exit(0)
+    })
+  }
+
+  start(){
+    this.server.listen(PORT, HOST, () => {
+      log("Listening on", this.server.address())
+    })
+  }
+
+  stop(){
+    log('Closing server')
+
+    this.server.close()
+  }
 }
+
+const server = new Server();
+server.start()

@@ -4,7 +4,7 @@ const net = require('net'),
 
 /*Constances*/
 const HOST = '::',
-  PORT = 1337
+  PORT = 6667
 
 /*CommandLine handler*/
 function sendCLRes(sender, ...data){
@@ -15,44 +15,78 @@ function log(...data){
   sendCLRes('server', ...data)
 }
 
+/*Client list*/
+class ClientList {
+  constructor(){
+    this.clients = {}
+  }
+
+  add(socket){
+    const id = Math.random().toString(36).substring(2)
+    this.clients[id] = { id, socket }
+
+    return id
+  }
+
+  remove(id){
+    if(this.clients[id] != -1) delete this.clients[id]
+  }
+
+  get(id){
+    return this.clients[id]
+  }
+
+  all(){
+    return Object.values(this.clients)
+  }
+}
+
 /*Server*/
 class Server {
-
   constructor(){
     this.server = net.createServer()
+    this.clientList = new ClientList()
 
     this.eventHandler()
 
-    process.stdin.addListener("data", (d) => this.handleCommands(d))
+    process.stdin.addListener("data", (d) => this.commandHandler(d))
   }
 
-  handleCommands(data){
+  commandHandler(data){
     const cmd = data.toString().trim()
 
     switch(cmd){
-      case 'address':
-        log(this.server.address())
-        break;
+      case 'clients':
+        const clientsArr = []
+        for(let client of this.clientList.all()){
+          clientsArr.push({ id: client.id, ip: client.socket.remoteAddress })
+        }
+        log(clientsArr)
       case 'stop':
       case 'exit':
         this.stop()
-        break;
+        break
       default:
         log("Unkown command")
     }  
   }
 
   clientEventHandler(socket){
-    socket.info = { ip: socket.remoteAddress }
+    socket.info = { id: this.clientList.add(socket), ip: socket.remoteAddress }
+    const sender = `${socket.info.id}[${socket.info.ip}]`
 
-    sendCLRes(socket.info.ip, 'Has connected')
+    sendCLRes(sender, 'Connected')
 
     socket.on('error', (err) => {
-      sendCLRes(socket.info.ip, 'Connection error:', err.message)
+      sendCLRes(sender, 'Connection error:', err.message)
     })
 
-    socket.on('close', () => {
-      sendCLRes(socket.info.ip, 'Has closed the connection')
+    socket.on('close', (had_error) => {
+      this.clientList.remove(socket.info.id)
+
+      if(!had_error){
+        sendCLRes(sender, 'Closed the connection')
+      }
     })
   }
 
@@ -76,6 +110,10 @@ class Server {
 
   stop(){
     log('Closing server')
+
+    for(let client of this.clientList.all()){
+      client.socket.end()
+    }
 
     this.server.close()
   }

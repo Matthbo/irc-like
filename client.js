@@ -1,10 +1,10 @@
 /*Imports*/
 const net = require('net'),
-  util = require('util')
+  util = require('util'),
+  { TestPacket } = require('./packet')
 
 /*Constances*/
-const HOST = '127.0.0.1',
-  PORT = 6667
+const PORT = 6667
 
 /*CommandLine handler*/
 function sendCLRes(sender, ...data){
@@ -17,12 +17,18 @@ function log(...data){
 
 /*Client*/
 class Client {
-  constructor(){
-    this.socket = new net.Socket().connect(PORT, HOST)
+  constructor(HOST){
+    if(!HOST){
+      log('Please provide an host address')
+      process.exit(1)
+    } else {
+      this.socket = new net.Socket().connect(PORT, HOST)
 
-    this.eventHandler()
+      this.eventHandler()
 
-    process.stdin.addListener("data", (d) => this.commandHandler(d))
+      process.stdin.addListener("data", (d) => this.commandHandler(d))
+      process.on('SIGINT', () => this.stop())
+    }
   }
 
   commandHandler(data){
@@ -32,6 +38,9 @@ class Client {
       case 'exit':
       case 'stop':
         this.stop()
+        break
+      case 'test':
+        this.test()
         break
       default:
         log("Unkown command")
@@ -53,10 +62,17 @@ class Client {
     })
   }
 
+  test(){
+    const test = new TestPacket().write(packet => {
+      packet.write('Hello there')
+    }).getBuffer()
+    this.socket.write(test)
+  }
+
   stop(){
     this.socket.end()
   }
 
 }
 
-new Client()
+new Client(process.argv[2])

@@ -1,6 +1,7 @@
 /*Imports*/
 const net = require('net'),
-  util = require('util');
+  util = require('util'),
+  { TestPacket } = require('./packet')
 
 /*Constances*/
 const HOST = '::',
@@ -50,6 +51,7 @@ class Server {
     this.eventHandler()
 
     process.stdin.addListener("data", (d) => this.commandHandler(d))
+    process.on('SIGINT', () => this.stop() )
   }
 
   commandHandler(data){
@@ -79,6 +81,15 @@ class Server {
 
     socket.on('error', (err) => {
       sendCLRes(sender, 'Connection error:', err.message)
+    })
+
+    socket.on('data', (data) => {
+      const packet = new TestPacket().setBuffer(data)
+       let res = ""
+      packet.read(packet => {
+        res = packet.toString().replace(/\0/g, '')
+      })
+      sendCLRes(sender, 'Sent', res)
     })
 
     socket.on('close', (had_error) => {

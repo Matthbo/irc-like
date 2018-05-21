@@ -1,7 +1,7 @@
 /*Imports*/
 const net = require('net'),
   util = require('util'),
-  { TestPacket } = require('./packet')
+  { PacketHandler, TestPacket } = require('./packet')
 
 /*Constances*/
 const HOST = '::',
@@ -47,6 +47,7 @@ class Server {
   constructor(){
     this.server = net.createServer()
     this.clientList = new ClientList()
+    PacketHandler.registerPackets()
 
     this.eventHandler()
 
@@ -87,7 +88,8 @@ class Server {
       const packet = new TestPacket().setBuffer(data)
        let res = ""
       packet.read(packet => {
-        res = packet.toString().replace(/\0/g, '')
+        //res = packet.toString().replace(/\0/g, '')
+        res = packet.readUInt8(0)
       })
       sendCLRes(sender, 'Sent', res)
     })

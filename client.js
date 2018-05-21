@@ -1,7 +1,7 @@
 /*Imports*/
 const net = require('net'),
   util = require('util'),
-  { TestPacket } = require('./packet')
+  { PacketHandler, TestPacket } = require('./packet')
 
 /*Constances*/
 const PORT = 6667
@@ -23,6 +23,7 @@ class Client {
       process.exit(1)
     } else {
       this.socket = new net.Socket().connect(PORT, HOST)
+      PacketHandler.registerPackets()
 
       this.eventHandler()
 
@@ -64,7 +65,7 @@ class Client {
 
   test(){
     const test = new TestPacket().write(packet => {
-      packet.write('Hello there')
+      packet.writeUInt8(255, 0)
     }).getBuffer()
     this.socket.write(test)
   }
